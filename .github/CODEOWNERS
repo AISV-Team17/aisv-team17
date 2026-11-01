@@ -1,0 +1,12 @@
+# 핵심 경로 — 양쪽 승인 필수
+/configs/                  @r1nn-dev @shh5452-star
+/backend/src/interfaces/   @r1nn-dev @shh5452-star
+/docs/specs/interfaces.md  @r1nn-dev @shh5452-star
+
+# 서비스 파트
+/backend/                  @r1nn-dev
+/frontend/                 @r1nn-dev
+/infra/                    @r1nn-dev
+
+# 모델 파트
+/model/                    @shh5452-star
