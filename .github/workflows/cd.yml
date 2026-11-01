@@ -1,0 +1,111 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  REPO: ${{ github.repository }}
+
+jobs:
+  # ── 이미지 빌드 & GHCR 푸시 (ADR-019) ────────────────────
+  build-push:
+    name: 이미지 빌드 & GHCR 푸시
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha_tag: ${{ steps.sha.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SHA 태그 생성
+        id: sha
+        run: echo "tag=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: GHCR 로그인
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: backend 이미지 빌드 & 푸시
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO }}/backend:${{ steps.sha.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.REPO }}/backend:latest
+
+      - name: frontend 이미지 빌드 & 푸시
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO }}/frontend:${{ steps.sha.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.REPO }}/frontend:latest
+
+  # ── Vultr 서버 배포 (ADR-020, ADR-021) ───────────────────
+  deploy:
+    name: Vultr 배포
+    runs-on: ubuntu-latest
+    needs: build-push
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .env 파일 생성
+        # ADR-021: GitHub Secrets 값을 .env로 조합해 SCP로 서버에 주입
+        run: |
+          cat > .env << 'EOF'
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          CONSOLE_SECRET_KEY=${{ secrets.CONSOLE_SECRET_KEY }}
+          CONSOLE_ADMIN_PASSWORD=${{ secrets.CONSOLE_ADMIN_PASSWORD }}
+          GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+          HUGGINGFACE_TOKEN=${{ secrets.HUGGINGFACE_TOKEN }}
+          EOF
+
+      - name: .env SCP 전송
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VULTR_SERVER_IP }}
+          username: root
+          key: ${{ secrets.VULTR_SSH_KEY }}
+          source: ".env"
+          target: "/opt/aisv-team17/"
+          overwrite: true
+
+      - name: SSH 배포
+        # ADR-020: SSH Deploy Key → docker compose pull & up -d
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VULTR_SERVER_IP }}
+          username: root
+          key: ${{ secrets.VULTR_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/aisv-team17
+
+            # .env 파일 권한 설정 (ADR-021)
+            chmod 600 .env
+
+            # GHCR 이미지 pull
+            echo "${{ secrets.GHCR_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+
+            # 컨테이너 재기동
+            docker compose up -d --remove-orphans
+
+            # DB 마이그레이션 (alembic)
+            docker compose exec -T console alembic upgrade head
+
+            # 헬스체크
+            sleep 10
+            docker compose ps

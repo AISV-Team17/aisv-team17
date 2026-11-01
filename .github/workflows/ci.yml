@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  pr-lint:
+    name: pr-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|refactor|perf|test|docs|chore|style|hotfix)(\([a-z0-9-]+\))?!?: .+'
+          if ! echo "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "❌ PR title format: <type>(<scope>): <subject>"
+            echo "   got: $PR_TITLE"
+            exit 1
+          fi
+
+      - name: Check branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          pattern='^(feat|fix|refactor|perf|test|docs|chore|style|hotfix)/[0-9]+-[a-z]+-[a-z0-9-]+$'
+          if ! echo "$BRANCH" | grep -Eq "$pattern"; then
+            echo "❌ Branch name format: <type>/<issue-number>-<scope>-<summary>"
+            echo "   got: $BRANCH"
+            exit 1
+          fi
+
+      - name: Check linked issue
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if ! echo "$PR_BODY" | grep -Eq '(Closes|Fixes|Resolves) #[0-9]+'; then
+            echo "❌ PR body must contain 'Closes #<issue-number>'"
+            exit 1
+          fi
+
+  quality-check:
+    name: quality-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Setup Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies (backend)
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Lint / Format / Type check (backend)
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy src
+
+      - name: Test (backend)
+        working-directory: backend
+        run: uv run pytest -q
+
+      - name: Install dependencies (model)
+        working-directory: model
+        run: uv sync --locked
+
+      - name: Lint / Format / Type check (model)
+        working-directory: model
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy src
+
+      - name: Test (model)
+        working-directory: model
+        run: uv run pytest -q
