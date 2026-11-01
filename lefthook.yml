@@ -1,0 +1,37 @@
+pre-commit:
+  parallel: true
+  commands:
+    python-lint:
+      glob: "backend/**/*.py"
+      run: cd backend && uv run ruff check --fix . && uv run ruff format .
+      stage_fixed: true
+    model-lint:
+      glob: "model/**/*.py"
+      run: cd model && uv run ruff check --fix . && uv run ruff format .
+      stage_fixed: true
+    notebook-strip:
+      glob: "*.ipynb"
+      run: uvx nbstripout {staged_files}   # 출력 셀 제거: diff 노이즈·API 키 노출 방지
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        msg=$(head -n1 {1})
+        pattern='^((feat|fix|refactor|perf|test|docs|chore|style|hotfix)(\([a-z0-9-]+\))?!?: .+|Merge .+|Revert .+|(fixup|squash)! .+|WIP.*)$'
+        if ! echo "$msg" | grep -Eq "$pattern"; then
+          echo "❌ 커밋 메시지 형식: <type>(<scope>): <subject>"
+          echo "   입력: $msg"
+          exit 1
+        fi
+
+pre-push:
+  commands:
+    protect-branch:
+      run: |
+        branch=$(git symbolic-ref --short HEAD)
+        if [ "$branch" = "main" ] || [ "$branch" = "develop" ]; then
+          echo "❌ $branch 브랜치에는 직접 push할 수 없습니다. PR을 사용하세요."
+          exit 1
+        fi
