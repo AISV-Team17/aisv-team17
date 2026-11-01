@@ -49,9 +49,9 @@ jobs:
           fetch-depth: 0
 
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.0/gitleaks_8.21.0_linux_x64.tar.gz | tar -xz
+          ./gitleaks detect --source . --redact -v
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
