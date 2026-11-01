@@ -5,105 +5,88 @@ on:
     branches: [develop, main]
 
 jobs:
-  # ── PR 메타 검사 ──────────────────────────────────────────
-  pr-title:
-    name: PR 제목 형식 검사
+  pr-lint:
+    name: pr-lint
     runs-on: ubuntu-latest
     steps:
-      - name: Conventional Commits 형식 확인
+      - name: Check PR title
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           pattern='^(feat|fix|refactor|perf|test|docs|chore|style|hotfix)(\([a-z0-9-]+\))?!?: .+'
           if ! echo "$PR_TITLE" | grep -Eq "$pattern"; then
-            echo "❌ PR 제목 형식 오류"
-            echo "   형식: <type>(<scope>): <subject>"
-            echo "   입력: $PR_TITLE"
+            echo "❌ PR title format: <type>(<scope>): <subject>"
+            echo "   got: $PR_TITLE"
             exit 1
           fi
-          echo "✅ PR 제목 통과: $PR_TITLE"
 
-  branch-name:
-    name: 브랜치명 형식 검사
-    runs-on: ubuntu-latest
-    steps:
-      - name: 브랜치명 규칙 확인
+      - name: Check branch name
         env:
           BRANCH: ${{ github.head_ref }}
         run: |
           pattern='^(feat|fix|refactor|perf|test|docs|chore|style|hotfix)/[0-9]+-[a-z]+-[a-z0-9-]+$'
           if ! echo "$BRANCH" | grep -Eq "$pattern"; then
-            echo "❌ 브랜치명 형식 오류"
-            echo "   형식: <type>/<issue-number>-<scope>-<summary>"
-            echo "   입력: $BRANCH"
+            echo "❌ Branch name format: <type>/<issue-number>-<scope>-<summary>"
+            echo "   got: $BRANCH"
             exit 1
           fi
-          echo "✅ 브랜치명 통과: $BRANCH"
 
-  linked-issue:
-    name: 연결 이슈 확인
-    runs-on: ubuntu-latest
-    steps:
-      - name: PR 본문 Closes #번호 확인
+      - name: Check linked issue
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           if ! echo "$PR_BODY" | grep -Eq '(Closes|Fixes|Resolves) #[0-9]+'; then
-            echo "❌ PR 본문에 'Closes #이슈번호'가 없습니다."
+            echo "❌ PR body must contain 'Closes #<issue-number>'"
             exit 1
           fi
-          echo "✅ 연결 이슈 확인 완료"
 
-  # ── 비밀값 스캔 ───────────────────────────────────────────
-  secret-scan:
-    name: 비밀값 스캔 (gitleaks)
+  quality-check:
+    name: quality-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v2
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── lint · type · test (ci-gate) ─────────────────────────
-  ci-gate:
-    name: CI 게이트 (${{ matrix.package }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [backend, model]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: uv 설치
+      - name: Setup uv
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
 
-      - name: Python 3.12 설정
+      - name: Setup Python 3.12
         run: uv python install 3.12
 
-      - name: 의존성 설치 (uv.lock 기준)
-        working-directory: ${{ matrix.package }}
+      - name: Install dependencies (backend)
+        working-directory: backend
         run: uv sync --locked
 
-      - name: ruff lint
-        working-directory: ${{ matrix.package }}
-        run: uv run ruff check .
+      - name: Lint / Format / Type check (backend)
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy src
 
-      - name: ruff format 검사
-        working-directory: ${{ matrix.package }}
-        run: uv run ruff format --check .
+      - name: Test (backend)
+        working-directory: backend
+        run: uv run pytest -q
 
-      - name: mypy 타입 검사
-        working-directory: ${{ matrix.package }}
-        run: uv run mypy src
+      - name: Install dependencies (model)
+        working-directory: model
+        run: uv sync --locked
 
-      - name: pytest 단위 테스트
-        # pyproject.toml addopts = "-m 'not llm and not eval'" 자동 적용
-        # LLM·eval 마커 테스트는 CI에서 제외 (로컬 또는 eval 워크플로우에서 실행)
-        working-directory: ${{ matrix.package }}
+      - name: Lint / Format / Type check (model)
+        working-directory: model
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy src
+
+      - name: Test (model)
+        working-directory: model
         run: uv run pytest -q
