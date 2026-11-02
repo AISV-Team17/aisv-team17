@@ -67,7 +67,7 @@ services:
     build: ./backend
     command: uvicorn src.rag.main:app --host 0.0.0.0 --port 8000
     environment:
-      DATABASE_URL: postgresql+psycopg2://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
+      DATABASE_URL: postgresql+asyncpg://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
@@ -88,7 +88,7 @@ services:
     build: ./backend
     command: uvicorn src.ingest.main:app --host 0.0.0.0 --port 8001
     environment:
-      DATABASE_URL: postgresql+psycopg2://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
+      DATABASE_URL: postgresql+asyncpg://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       OTEL_SERVICE_NAME: ingest
     mem_limit: 256m
@@ -103,7 +103,7 @@ services:
     build: ./backend
     command: python -m src.worker.main
     environment:
-      DATABASE_URL: postgresql+psycopg2://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
+      DATABASE_URL: postgresql+asyncpg://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OTEL_SERVICE_NAME: worker
     volumes:
@@ -118,7 +118,7 @@ services:
     build: ./backend
     command: python -m src.drift.main
     environment:
-      DATABASE_URL: postgresql+psycopg2://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
+      DATABASE_URL: postgresql+asyncpg://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
       OTEL_SERVICE_NAME: drift
     mem_limit: 256m
@@ -131,7 +131,7 @@ services:
     build: ./backend
     command: python -m src.agent.main
     environment:
-      AGENT_DB_DSN: postgresql+psycopg2://aisv_ro:${POSTGRES_PASSWORD}@postgres:5432/aisv
+      AGENT_DB_DSN: postgresql+asyncpg://aisv_ro:${POSTGRES_PASSWORD}@postgres:5432/aisv
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OTEL_SERVICE_NAME: agent
     mem_limit: 512m
@@ -144,7 +144,7 @@ services:
     build: ./backend
     command: uvicorn src.console.main:app --host 0.0.0.0 --port 8002
     environment:
-      DATABASE_URL: postgresql+psycopg2://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
+      DATABASE_URL: postgresql+asyncpg://aisv:${POSTGRES_PASSWORD}@postgres:5432/aisv
       CONSOLE_SECRET_KEY: ${CONSOLE_SECRET_KEY}
       CONSOLE_ADMIN_PASSWORD: ${CONSOLE_ADMIN_PASSWORD}
       OTEL_SERVICE_NAME: console
