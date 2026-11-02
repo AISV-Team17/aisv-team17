@@ -2,15 +2,14 @@ import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
+
 from alembic import context
 
 config = context.config
 fileConfig(config.config_file_name)
 
 # asyncpg(앱용) → psycopg2(alembic sync 마이그레이션용)로 드라이버 교체
-_url = os.environ["DATABASE_URL"].replace(
-    "postgresql+asyncpg://", "postgresql+psycopg2://"
-)
+_url = os.environ["DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql+psycopg2://")
 config.set_main_option("sqlalchemy.url", _url)
 
 # Issue #7 ERD 확정 후 아래 두 줄로 교체
