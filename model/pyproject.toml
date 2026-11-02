@@ -1,0 +1,38 @@
+[project]
+name = "aisv-model"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.4",
+    "transformers>=4.47",
+    "accelerate>=0.34",
+    "optimum[onnxruntime]>=1.22",
+    "onnxruntime>=1.19",
+    "datasets>=3.0",
+    "sentence-transformers>=3.1",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "scikit-learn>=1.5",
+    "seqeval>=1.2",
+    "scipy>=1.14",
+    "huggingface-hub>=0.25",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.7",
+    "pytest>=8.3",
+    "jupyter>=1.1",
+    "nbstripout>=0.7",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "eval: 모델 평가 테스트 (비용 발생)",
+]
+addopts = "-m 'not eval'"
