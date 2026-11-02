@@ -1,0 +1,43 @@
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+
+  redis:
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+
+  prometheus:
+    ports:
+      - "9090:9090"
+
+  rag:
+    volumes:
+      - ./backend:/app
+    command: uvicorn src.rag.main:app --host 0.0.0.0 --port 8000 --reload
+
+  ingest:
+    volumes:
+      - ./backend:/app
+    command: uvicorn src.ingest.main:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"
+
+  worker:
+    volumes:
+      - ./backend:/app
+
+  drift:
+    volumes:
+      - ./backend:/app
+
+  agent:
+    volumes:
+      - ./backend:/app
+
+  console:
+    volumes:
+      - ./backend:/app
+    command: uvicorn src.console.main:app --host 0.0.0.0 --port 8002 --reload
+    ports:
+      - "8002:8002"
