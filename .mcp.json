@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GITHUB_PAT",
+        "-e", "GITHUB_TOOLSETS",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_TOOLSETS": "context,repos,issues,pull_requests"
+      }
+    }
+  }
+}
