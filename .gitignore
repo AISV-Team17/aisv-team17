@@ -62,6 +62,11 @@ Thumbs.db
 logs/
 *.log
 
+# Claude Code local files
+.claude/*
+!.claude/settings.local.json
+skill-lock.json
+
 # personal workspace
 .personal/
 
